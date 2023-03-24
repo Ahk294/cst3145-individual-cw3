@@ -10,6 +10,5 @@ cd dist
 git init
 git add -A
 git commit -m 'deploy'
-Ahk294/cst3145-individual-cw3
 git push -f git@github.com:Ahk294/cst3145-individual-cw3.git master:gh-pages
 cd -
