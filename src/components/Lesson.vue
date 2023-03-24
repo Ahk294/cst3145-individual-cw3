@@ -22,7 +22,7 @@
         <!-- Add to cart button -->
         <!-- v-on:click directive is used to add a click event handler that will trigger the 'addToCart' method. -->
         <!-- v-if directive will only render the button if the 'canAddToCart' method returns True-->
-        <button v-on:click="addToCart(lesson)" v-if="canAddToCart(lesson)" id="btn_add"
+        <button v-on:click="addLesson(lesson)" v-if="canAddToCart(lesson)" id="btn_add"
           class="btn btn-outline-dark ms-auto">
           Add to Cart
         </button>
@@ -44,7 +44,7 @@ export default {
   methods: {
     canAddToCart(lesson) {
       // checks if the lesson has spaces available.
-      return lesson.spaces > this.cartCount(lesson.id);
+      return lesson.spaces > this.cartCount(lesson._id);
     },
     cartCount(id) {
       // keeps count of the quantity of a particular lesson in the cart
@@ -56,10 +56,8 @@ export default {
       }
       return count;
     },
-    addToCart: function (lesson) {
-      // remove 1 space from the lesson and add it to the cart
-      lesson.spaces--;
-      this.cart.push(lesson);
+    addLesson(lesson) {
+      this.$emit('addToCart', lesson);
     },
   }
 };

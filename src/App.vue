@@ -33,7 +33,7 @@
               <!-- disables the button if the cart length is 0 -->
               <button :disabled="cart.length == 0" v-on:click="showCheckoutPage" v-if="showLessonPage"
                 class="btn btn-outline-light" type="submit">
-                <i class="fa-solid fa-cart-shopping"></i> Checkout ({{ cart.length }})
+                <i class="fa-solid fa-cart-shopping"></i> Cart ({{ cart.length }})
               </button>
               <button v-on:click="showCheckoutPage" v-else class="btn btn-outline-light" type="submit">
                 <i class="fa-solid fa-home"></i> Home
@@ -127,9 +127,9 @@
           <!-- v-text directive will be used to update the text with the value provided for data key 'sitename' -->
           <h1 class="display-5 ms-4 mt-5" v-if="searchArr.length != 1">Displaying {{ searchArr.length }} Results</h1>
           <h1 class="display-5 ms-4 mt-5" v-else>Displaying {{ searchArr.length }} Result</h1>
-          <div id="lessons" class="col-12 col-md-6 col-lg-4" v-for="lesson in searchArr" :key="lesson.id">
+          <div id="lessons" class="col-12 col-md-6 col-lg-4" v-for="lesson in searchArr" :key="lesson._id">
             <!-- lesson component -->
-            <lesson :lesson="lesson" :cart="cart"></lesson>
+            <lesson @addToCart="addToCart" :lesson="lesson" :cart="cart"></lesson>
           </div>
         </div>
       </div>
@@ -139,9 +139,9 @@
           <div class="row">
             <!-- v-text directive will be used to update the text with the value provided for data key 'sitename' -->
             <h1 class="display-5 text-center mt-5" v-text="sitename"></h1>
-            <div id="lessons" class="col-12 col-md-6 col-lg-4" v-for="lesson in sortedLessons" :key="lesson.id">
+            <div id="lessons" class="col-12 col-md-6 col-lg-4" v-for="lesson in sortedLessons" :key="lesson._id">
               <!-- lesson component -->
-              <lesson :lesson="lesson" :cart="cart"></lesson>
+              <lesson @addToCart="addToCart" :lesson="lesson" :cart="cart"></lesson>
             </div>
           </div>
         </div>
@@ -150,15 +150,34 @@
         <div v-else>
           <div class="row">
             <h1 class="display-5 ms-4 mt-5">Number of items in cart: {{ cart.length }}</h1>
-            <div class="col-12 col-md-6 col-lg-4" v-for="(lesson, index) in cart" :key="index + lesson.id">
+            <div class="col-12 col-md-6 col-lg-4" v-for="(lesson, index) in cart" :key="index + ' ' + lesson._id">
               <!-- checkout component -->
-              <checkout :lessons="lessons" :lesson="lesson" :cart="cart" :show-lesson-page="showLessonPage"
-                :search-term="searchTerm"></checkout>
+              <checkout @removeFromCart="removeFromCart" :lesson="lesson" :index="index" :cart="cart"></checkout>
             </div>
           </div>
           <hr>
           <h1 class="display-6 text-center pt-2">Checkout</h1>
-          <order-form :name="name" :phone="phone" :cart="cart"></order-form>
+
+          <div class="row">
+            <div class="mb-3 col-12 col-md-6 col-lg-6">
+              <label for="name" class="form-label">Name</label>
+              <input v-model="name" type="text" class="form-control" id="name" placeholder="Fullname">
+            </div>
+            <div class="mb-3 col-12 col-md-6 col-lg-6">
+              <label for="phone" class="form-label">Phone</label>
+              <input v-model="phone" type="number" class="form-control" id="phone" placeholder="971501234567">
+            </div>
+            <div class="mb-3 d-flex justify-content-center">
+              <button v-if="validateForm" v-on:click="order" id="btn_checkout" class="btn btn-success"
+                data-bs-toggle="modal" data-bs-target="#orderConfirm">
+                Checkout
+              </button>
+              <button disabled v-else id="btn_checkout" class="btn btn-success">
+                Checkout
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -175,16 +194,12 @@
 /* eslint-disable */
 import Lesson from './components/Lesson.vue';
 import Checkout from './components/Checkout.vue';
-import OrderForm from "./components/OrderForm.vue";
-
-import lessons from "./lessons.json";
 
 export default {
   name: 'App',
   components: {
     Lesson,
-    Checkout,
-    OrderForm
+    Checkout
   },
   // Initial data has been declared as a function
   data() {
@@ -198,34 +213,109 @@ export default {
       showLessonPage: true,
       searchStatus: false,
       cartLength: false,
-      lessons: lessons,
+      lessons: [],
+      duplicate_lessons: [],
       cart: [],
       searchArr: [],
     };
   },
   methods: {
+    order() {
+      // taking only one intsance of each lesson from the cart to create an array of the lessons ordered with no duplication
+      let uniqueLessonsArray = [
+        ...new Map(this.cart.map((item) => [item["_id"], item])).values(),
+      ];
+
+      let orderedLessonsArray = [];
+
+      uniqueLessonsArray.forEach((lesson) => {
+        let lessonObj = {};
+        this.duplicate_lessons.forEach((item) => {
+          if (lesson._id === item._id) {
+            lessonObj = {
+              id: lesson._id,
+              lesson_name: lesson.subject,
+              spaces: item.spaces - lesson.spaces,
+              rem_spaces: item.spaces - (item.spaces - lesson.spaces)
+            };
+          }
+        });
+
+        orderedLessonsArray.push(lessonObj);
+      });
+
+      // creating the order object
+      let orderObj = {
+        name: this.name,
+        phone: this.phone,
+        lessons: orderedLessonsArray,
+        total_qty: this.cart.length
+      };
+
+      // replacing the default '_id' key of the lessons with 'lesson_id' to store in MongoDB 'orders' collection
+      orderObj.lessons.forEach((obj) => {
+        obj['lesson_id'] = obj['_id'];
+        delete obj['_id'];
+      });
+
+      // fecth API used to save a new order with POST
+      fetch("http://localhost:3000/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderObj)
+      })
+        .then(res => res.json())
+        .then(data => {
+          // do something with the response data from the PUT request
+          console.log({ "Success": data });
+        });
+
+      // fetch API to update the number of available spaces in lessons with PUT
+      orderedLessonsArray.forEach((lesson) => {
+        fetch("http://localhost:3000/lessons/" + lesson['id'], {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ spaces: lesson['rem_spaces'] })
+        })
+          .then(res => res.json())
+          .then(data => {
+            // do something with the response data from the PUT request
+            console.log({ "Success": data });
+
+            this.cart = [];
+          });
+      });
+    },
     search() {
-      // search function that loops through the lesson cards and looks for the term typed in the search bar
+      // 'search as you type' functionality has been implemented using 'v-model'
       this.searchArr = [];
       this.searchStatus = true;
       let term = this.searchTerm.toLowerCase();
-      let lessons = this.lessons;
 
       // if nothing is searched, then the normal home page is shown
       if (term == "") {
         this.searchStatus = false;
       }
 
-      /* if the term/s typed in the searchbar are found in the 'subject' or 'location' of a lesson,
-         then that lesson's object is pushed into the searchArr so that it can be rendered on the search page
-      */
-      for (let i = 0; i < lessons.length; i++) {
-        if (lessons[i].subject.toLowerCase().includes(term.toLowerCase()) || lessons[i].location.toLowerCase().includes(term.toLowerCase())) {
-          this.searchArr.push(lessons[i]);
-        }
-      }
-    },
+      let app = this;
 
+      // fetch API making GET request with the search term
+      fetch('http://localhost:3000/lessons/' + term).then(
+        function (response) {
+          response.json().then(
+            function (json) {
+              app.searchArr = json;
+              console.log(json);
+            }
+          );
+        }
+      );
+    },
+    addToCart(lesson) {
+      // remove 1 space from the lesson and add it to the cart
+      lesson.spaces--;
+      this.cart.push(lesson);
+    },
     showCheckoutPage() {
       // terinary operation to toggle checkout page
       this.showLessonPage = this.showLessonPage ? false : true;
@@ -235,6 +325,26 @@ export default {
         this.searchStatus = true;
       } else {
         this.searchStatus = false;
+      }
+    },
+    // removes object based on attribute, 'id' in this case
+    removeFromCart(idValue, index) {
+      let arr = this.cart;
+      let lessons = this.lessons;
+
+      arr.splice(index, 1);
+
+      // adding back 1 space to the lesson that was removed from cart
+      for (let i = 0; i < lessons.length; i++) {
+        if (lessons[i]["_id"] == idValue) {
+          lessons[i].spaces = lessons[i].spaces + 1;
+        }
+      }
+
+      // condition to automatically direct user to the home page when there are no items in the cart
+      if (this.cart.length === 0) {
+        this.showLessonPage = true;
+        this.searchTerm = '';
       }
     },
   },
@@ -276,7 +386,39 @@ export default {
         }
       }
     },
+    // using regex with the test() method to validate the checkout form
+    validateForm() {
+      return /^(?!\s*$)[a-zA-Z.+\s'-]+$/.test(this.name) && /^(?!\s*$)[0-9.+\s'-]+$/.test(this.phone) && this.phone.length === 10 && this.cart.length > 0;
+    },
   },
+  // the created property has the fetch API that retrieves all the lessons with GET
+  created: function () {
+    console.log('requesting data from server ...');
+
+    let app = this;
+
+    fetch('http://localhost:3000/lessons').then(
+      function (response) {
+        response.json().then(
+          function (json) {
+            app.lessons = json;
+            console.log(json);
+          }
+        );
+      }
+    );
+
+    fetch('http://localhost:3000/lessons').then(
+      function (response) {
+        response.json().then(
+          function (json) {
+            app.duplicate_lessons = json;
+            console.log(json);
+          }
+        );
+      }
+    );
+  }
 };
 </script>
 
