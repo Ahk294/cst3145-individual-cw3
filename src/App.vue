@@ -192,6 +192,8 @@
 
 <script>
 /* eslint-disable */
+
+// importing components
 import Lesson from './components/Lesson.vue';
 import Checkout from './components/Checkout.vue';
 
