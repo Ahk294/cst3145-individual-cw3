@@ -151,7 +151,7 @@
           <div class="row">
             <h1 class="display-5 ms-4 mt-5">Number of items in cart: {{ cart.length }}</h1>
             <div class="col-12 col-md-6 col-lg-4" v-for="(lesson, index) in cart" :key="index + ' ' + lesson._id">
-              <!-- checkout component -->
+              <!-- checkout component added -->
               <checkout @removeFromCart="removeFromCart" :lesson="lesson" :index="index" :cart="cart"></checkout>
             </div>
           </div>
