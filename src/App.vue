@@ -140,7 +140,7 @@
             <!-- v-text directive will be used to update the text with the value provided for data key 'sitename' -->
             <h1 class="display-5 text-center mt-5" v-text="sitename"></h1>
             <div id="lessons" class="col-12 col-md-6 col-lg-4" v-for="lesson in sortedLessons" :key="lesson._id">
-              <!-- lesson component -->
+              <!-- lesson component added -->
               <lesson @addToCart="addToCart" :lesson="lesson" :cart="cart"></lesson>
             </div>
           </div>
