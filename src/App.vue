@@ -314,6 +314,7 @@ export default {
         }
       );
     },
+    // add to cart function
     addToCart(lesson) {
       // remove 1 space from the lesson and add it to the cart
       lesson.spaces--;
