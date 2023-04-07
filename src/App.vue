@@ -199,6 +199,7 @@ import Checkout from './components/Checkout.vue';
 
 export default {
   name: 'App',
+  // declaring the components
   components: {
     Lesson,
     Checkout
